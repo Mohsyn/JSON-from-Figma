@@ -173,7 +173,7 @@ async function getByFlag(figmaApiKey,figmaId,flagWord) {
 
 	if (typeof figmaTreeStructure.err == "undefined"){
 		getBase(figmaTreeStructure);
-		
+
 		let flag = new RegExp(flagWord)
 		let flagsJSON = {}
 
@@ -195,6 +195,48 @@ async function getByFlag(figmaApiKey,figmaId,flagWord) {
 		getBase(figmaTreeStructure);
 		$(".file-result__name").text(figmaTreeStructure.status);
 		finalParsePart(figmaTreeStructure, 1);
+	}
+};
+
+//////////////////////////////////
+
+async function getAuthorDetails(figmaApiKey) {
+	const url = 'https://api.figma.com/v1/me';
+	const options = {
+		method: 'GET',
+		headers: {
+			'X-Figma-Token': figmaApiKey
+		}
+	};
+
+//	console.log(`Sending request to ${url}\nMethod: ${options.method}\nHeaders:`, options.headers);
+
+	try {
+		const controller = new AbortController();
+		const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+		const result = await fetch(url, { ...options, signal: controller.signal });
+		clearTimeout(timeoutId);
+
+		var userData = await result.json();
+
+		if (typeof userData.err == "undefined"){
+			// For author details, we don't have a file name or thumbnail, so set defaults
+			$(".file-result__name").text("Author Details");
+			$(".file-result__image").css("background-image", "none");
+
+			finalParsePart(userData, 2);
+		} else {
+			// Handle error case
+			$(".file-result__name").text(userData.status || "Error");
+			$(".file-result__image").css("background-image", "none");
+			finalParsePart(userData, 1);
+		}
+	} catch (error) {
+		console.error('Error fetching author details:', error);
+		$(".file-result__name").text("Error");
+		$(".file-result__image").css("background-image", "none");
+		finalParsePart({ error: error.message }, 1);
 	}
 };
 
@@ -247,31 +289,47 @@ $(".dropdown-list .dropdown-item").click(function () {
 
 $(".btn__accent").click(function(){
 	btnText = $(this).text()
-	if(!$("#token").val() && $("#file-id").val()){
-		alert("Paste personal access token");
-	} else if (!$("#file-id").val() && $("#token").val()){
-		alert("Paste file ID");
-	} else if (!$("#token").val() && !$("#file-id").val()){
-		alert("Paste Personal access token and file ID")
-	} else if ($("#token").val() && $("#file-id").val()){
-		if ($("#selected-icon").hasClass("icon-m_JSON")) {
-			getThree($("#token").val(), $("#file-id").val());
-		} else if ($("#selected-icon").hasClass("icon-m_pages-and-artboards")){
-			getPagesAndArtboards($("#token").val(), $("#file-id").val());
-		} else if ($("#selected-icon").hasClass("icon-m_pages")){
-			getPages($("#token").val(), $("#file-id").val());
-		} else if ($("#selected-icon").hasClass("icon-m_artboards")){
-			getArtboards($("#token").val(), $("#file-id").val());
-		} else if ($("#selected-icon").hasClass("icon-m_by-flag")){
-			flagWord = $("#by-flag").val();
-			getByFlag($("#token").val(), $("#file-id").val(),flagWord);
+	let selectedClass = $("#selected-icon").attr("class");
+
+	if (selectedClass === "icon-m_author-details") {
+		if (!$("#token").val()) {
+			alert("Paste personal access token");
+		} else {
+			getAuthorDetails($("#token").val());
+			$(".file-result__loader").css({
+				"-webkit-transition": "scaleY(1)",
+				"-o-transition": "scaleY(1)",
+				"transform": "scaleY(1)"
+			});
+			$(this).text("Fetching…")
 		}
-		$(".file-result__loader").css({
-			"-webkit-transition": "scaleY(1)",
-			"-o-transition": "scaleY(1)",
-			"transform": "scaleY(1)"
-		});
-		$(this).text("Fetching…")
+	} else {
+		if (!$("#token").val() && $("#file-id").val()){
+			alert("Paste personal access token");
+		} else if (!$("#file-id").val() && $("#token").val()){
+			alert("Paste file ID");
+		} else if (!$("#token").val() && !$("#file-id").val()){
+			alert("Paste Personal access token and file ID")
+		} else if ($("#token").val() && $("#file-id").val()){
+			if (selectedClass === "icon-m_JSON") {
+				getThree($("#token").val(), $("#file-id").val());
+			} else if (selectedClass === "icon-m_pages-and-artboards"){
+				getPagesAndArtboards($("#token").val(), $("#file-id").val());
+			} else if (selectedClass === "icon-m_pages"){
+				getPages($("#token").val(), $("#file-id").val());
+			} else if (selectedClass === "icon-m_artboards"){
+				getArtboards($("#token").val(), $("#file-id").val());
+			} else if (selectedClass === "icon-m_by-flag"){
+				flagWord = $("#by-flag").val();
+				getByFlag($("#token").val(), $("#file-id").val(),flagWord);
+			}
+			$(".file-result__loader").css({
+				"-webkit-transition": "scaleY(1)",
+				"-o-transition": "scaleY(1)",
+				"transform": "scaleY(1)"
+			});
+			$(this).text("Fetching…")
+		}
 	}
 });
 
